@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Complaint {{ complaint.reference_no }} — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('citizen.my_complaints') }}" class="text-decoration-none">
+    <i class="bi bi-arrow-left me-1"></i> Back to My Complaints
+  </a>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Details and Timeline -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div>
+          <span class="text-muted small text-uppercase">Grievance Reference</span>
+          <h4 class="mb-0 fw-bold font-monospace text-primary">{{ complaint.reference_no }}</h4>
+        </div>
+        <div class="text-end">
+          <span class="badge {{ complaint.status|status_badge }} fs-6">{{ complaint.status }}</span>
+          {% if complaint.is_overdue() %}
+            <span class="badge bg-danger ms-1">SLA Breached</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-4">
+        <h5 class="fw-bold text-dark mb-2">{{ complaint.title }}</h5>
+        <p class="text-secondary mb-4" style="white-space: pre-line;">{{ complaint.description }}</p>
+
+        <!-- Resolution Note Banner -->
+        {% if complaint.resolution_notes %}
+          <div class="alert alert-success border-0 shadow-sm mb-4">
+            <h6 class="fw-bold mb-1"><i class="bi bi-check2-circle me-1"></i>Official Resolution Remedy:</h6>
+            <p class="mb-0 small">{{ complaint.resolution_notes }}</p>
+          </div>
+        {% endif %}
+
+        <!-- Rejection Reason Banner -->
+        {% if complaint.rejection_reason %}
+          <div class="alert alert-danger border-0 shadow-sm mb-4">
+            <h6 class="fw-bold mb-1"><i class="bi bi-x-circle me-1"></i>Grievance Rejection Reason:</h6>
+            <p class="mb-0 small">{{ complaint.rejection_reason }}</p>
+          </div>
+        {% endif %}
+
+        <div class="row g-3 pt-3 border-top">
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Department</small>
+            <span class="fw-semibold">{{ complaint.department.dept_name if complaint.department else 'N/A' }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Category</small>
+            <span class="fw-semibold">{{ complaint.category.name if complaint.category else 'N/A' }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Locality</small>
+            <span class="fw-semibold"><i class="bi bi-geo-alt text-danger me-1"></i>{{ complaint.locality }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Configured SLA Deadline</small>
+            <span class="fw-semibold">{{ complaint.deadline_at|format_date }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status History Timeline -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-bezier2 me-2 text-primary"></i>Lifecycle Audit Timeline</h5>
+      </div>
+      <div class="card-body p-4">
+        <ul class="timeline mb-0">
+          {% for h in complaint.status_history %}
+            <li class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="badge {{ h.new_status|status_badge }}">{{ h.new_status }}</span>
+                <small class="text-muted">{{ h.changed_at|format_date }}</small>
+              </div>
+              <p class="text-secondary small mb-0">{{ h.remarks or 'No operational note provided.' }}</p>
+              <small class="text-muted">Actor: {{ h.changed_by.username if h.changed_by else 'System Workflow' }}</small>
+            </li>
+          {% else %}
+            <li class="timeline-item">
+              <div class="timeline-dot"></div>
+              <span class="badge bg-primary">SUBMITTED</span>
+              <p class="text-secondary small mb-0">Complaint registered by citizen.</p>
+              <small class="text-muted">{{ complaint.submitted_at|format_date }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Citizen Follow-up Comments -->
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-chat-left-text me-2 text-primary"></i>Follow-up Remarks</h5>
+      </div>
+      <div class="card-body p-4">
+        {% if comments %}
+          <div class="mb-4">
+            {% for c in comments %}
+              <div class="card bg-light border-0 mb-2 p-3">
+                <div class="d-flex justify-content-between mb-1">
+                  <strong class="small text-primary">{{ c.author.username }} ({{ c.author.role }})</strong>
+                  <small class="text-muted">{{ c.created_at|format_date }}</small>
+                </div>
+                <p class="mb-0 small text-secondary">{{ c.comment }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small">No follow-up remarks recorded.</p>
+        {% endif %}
+
+        <!-- Add Comment Form -->
+        <form method="POST" action="{{ url_for('citizen.add_comment', reference_no=complaint.reference_no) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-2">
+            <textarea class="form-control" name="comment" rows="2" placeholder="Add additional details or progress inquiry..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-send me-1"></i> Post Remark
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Actions & SLA Information -->
+  <div class="col-lg-4">
+    <!-- Action Panel -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-bold">Citizen Options</h6>
+      </div>
+      <div class="card-body">
+        {% if complaint.status in ('RESOLVED', 'CLOSED') %}
+          <p class="small text-muted mb-2">If the defect remains unaddressed or recurred immediately, you may dispute the resolution.</p>
+          <button type="button" class="btn btn-outline-danger w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#reopenModal">
+            <i class="bi bi-arrow-repeat me-1"></i> Dispute & Reopen Grievance
+          </button>
+        {% else %}
+          <p class="small text-success mb-0"><i class="bi bi-info-circle me-1"></i>This complaint is actively tracked under municipal SLA.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Operational SLA Metrics -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-bold">Operational Timeline</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-2 small">
+          <span class="text-muted">Elapsed Time:</span>
+          <span class="fw-semibold ms-1">{{ complaint.elapsed_hours()|round(1) }} hours</span>
+        </div>
+        <div class="mb-2 small">
+          <span class="text-muted">Target SLA:</span>
+          <span class="fw-semibold ms-1">{{ complaint.category.default_sla if complaint.category else 48 }} hours</span>
+        </div>
+        <div class="small">
+          <span class="text-muted">Breach Status:</span>
+          {% if complaint.is_overdue() %}
+            <span class="text-danger fw-bold ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Deadline Exceeded</span>
+          {% else %}
+            <span class="text-success fw-semibold ms-1"><i class="bi bi-shield-check me-1"></i>Within Schedule</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reopen Modal -->
+<div class="modal fade" id="reopenModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('citizen.reopen_complaint', reference_no=complaint.reference_no) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Dispute Resolution & Reopen</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">Please specify why the reported problem is not resolved. This justification will be logged in the immutable audit trail.</p>
+          <div class="mb-3">
+            <label for="reason" class="form-label fw-semibold">Dispute Reason <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="reason" name="reason" rows="3" required placeholder="Describe what remains incomplete..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger btn-sm">Confirm Reopen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

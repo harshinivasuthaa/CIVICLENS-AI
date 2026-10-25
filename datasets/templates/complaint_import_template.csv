@@ -1,0 +1,6 @@
+complaint_id,complaint_text,category,department,locality,latitude,longitude,submitted_at,assigned_at,resolved_at,status,service_deadline_hours
+CIV-SAMPLE-001,"Dangerous deep pothole on outer ring road near bus terminus","Roads and Potholes","Roads & Highways","Indiranagar",12.9716,77.5946,2026-10-20 09:30:00,2026-10-20 14:00:00,2026-10-21 16:30:00,RESOLVED,48
+CIV-SAMPLE-002,"Overflowing municipal garbage bin near vegetable market","Waste Management","Solid Waste Management","Koramangala",12.9352,77.6245,2026-10-22 10:15:00,2026-10-22 11:30:00,,IN_PROGRESS,24
+CIV-SAMPLE-003,"Drinking water supply contaminated with muddy sediment","Water Supply","Water Supply & Sewerage","Whitefield",12.9698,77.7500,2026-10-23 08:00:00,,,SUBMITTED,36
+CIV-SAMPLE-004,"Open manhole cover stolen on pedestrian footpath","Drainage and Sewage","Stormwater & Drainage","Jayanagar",12.9250,77.5938,2026-10-24 14:20:00,2026-10-24 15:00:00,,ASSIGNED,48
+CIV-SAMPLE-005,"Dark street with 4 consecutive streetlights malfunctioning","Streetlights and Electricity-Related Public Infrastructure","Electrical & Lighting","Malleshwaram",13.0031,77.5643,2026-10-21 19:45:00,2026-10-22 09:00:00,2026-10-22 15:30:00,RESOLVED,24

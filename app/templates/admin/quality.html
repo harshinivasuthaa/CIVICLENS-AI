@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Data Quality Report — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>Data Quality & Hygiene Audit</h3>
+    <p class="text-muted mb-0">System-wide data health index, coordinate completeness, and timestamp integrity.</p>
+  </div>
+</div>
+
+<!-- Quality Metric Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Quality Index</span>
+          <h2 class="fw-bold mb-0 text-success">{{ report.completeness_score }}%</h2>
+        </div>
+        <div class="stat-icon bg-light text-success"><i class="bi bi-patch-check"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Total Records</span>
+          <h2 class="fw-bold mb-0 text-primary">{{ report.total_records }}</h2>
+        </div>
+        <div class="stat-icon bg-light text-primary"><i class="bi bi-database"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Missing Geocodes</span>
+          <h2 class="fw-bold mb-0 text-warning">{{ report.missing_coords_pct }}%</h2>
+        </div>
+        <div class="stat-icon bg-light text-warning"><i class="bi bi-pin-map"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Batch Acceptance</span>
+          <h2 class="fw-bold mb-0 text-info">{{ report.batch_acceptance_rate }}%</h2>
+        </div>
+        <div class="stat-icon bg-light text-info"><i class="bi bi-check-all"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Breakdown Cards -->
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-shield-check me-2 text-primary"></i>Schema Integrity Audits</h5>
+      </div>
+      <div class="card-body p-4">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <span>Missing Latitude/Longitude coordinates:</span>
+            <span class="badge bg-warning text-dark">{{ report.missing_coords_count }} records</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <span>Resolved records lacking resolution timestamp:</span>
+            <span class="badge {% if report.inconsistent_resolved_count > 0 %}bg-danger{% else %}bg-success{% endif %}">
+              {{ report.inconsistent_resolved_count }} records
+            </span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <span>Active grievances with breached SLA deadline:</span>
+            <span class="badge {% if report.overdue_active_count > 0 %}bg-danger{% else %}bg-success{% endif %}">
+              {{ report.overdue_active_count }} records
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-pie-chart me-2 text-primary"></i>Category Distribution</h5>
+      </div>
+      <div class="card-body p-4">
+        <table class="table table-sm table-borderless mb-0">
+          <tbody>
+            {% for cat_name, count in report.category_distribution.items() %}
+              <tr>
+                <td>{{ cat_name }}</td>
+                <td class="text-end fw-bold">{{ count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

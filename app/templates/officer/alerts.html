@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Operational Alerts — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-bell me-2 text-danger"></i>Operational Alert & Warning Console</h3>
+    <p class="text-muted mb-0">Automated administrative alerts for SLA breaches, delay probabilities, and growing backlogs.</p>
+  </div>
+</div>
+
+<!-- Alert Type 1: Overdue SLA Breaches -->
+<div class="card shadow-sm border-0 mb-4 border-start border-danger border-4">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <h5 class="mb-0 fw-bold text-danger">
+      <i class="bi bi-exclamation-octagon-fill me-2"></i>Active SLA Breaches ({{ overdue_complaints|length }})
+    </h5>
+    <small class="text-muted">Requires immediate dispatch or escalation</small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Reference</th>
+          <th>Title & Category</th>
+          <th>Locality</th>
+          <th>Target Deadline</th>
+          <th>Elapsed</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in overdue_complaints %}
+          <tr>
+            <td class="fw-bold font-monospace text-danger">{{ c.reference_no }}</td>
+            <td>
+              <div class="fw-semibold">{{ c.title }}</div>
+              <small class="text-muted">{{ c.category.name if c.category else 'N/A' }}</small>
+            </td>
+            <td>{{ c.locality }}</td>
+            <td class="small">{{ c.deadline_at|format_date }}</td>
+            <td class="text-danger fw-bold">{{ c.elapsed_hours()|round(1) }} hours</td>
+            <td>
+              <a href="{{ url_for('officer.review_detail', reference_no=c.reference_no) }}" class="btn btn-sm btn-outline-danger">
+                Resolve Breach
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-3 text-muted">
+              <i class="bi bi-check-circle-fill text-success me-1"></i>No active complaints currently exceed their SLA deadline.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Alert Type 2: High Delay Risk -->
+<div class="card shadow-sm border-0 mb-4 border-start border-warning border-4">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <h5 class="mb-0 fw-bold text-warning-emphasis">
+      <i class="bi bi-cpu-fill me-2"></i>High Service Delay Risk Projections ({{ high_delay|length }})
+    </h5>
+    <small class="text-muted">Probability of deadline breach &ge; 70%</small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Reference</th>
+          <th>Title & Locality</th>
+          <th>Department</th>
+          <th>Delay Probability</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in high_delay %}
+          <tr>
+            <td class="fw-bold font-monospace text-primary">{{ c.reference_no }}</td>
+            <td>
+              <div class="fw-semibold">{{ c.title }}</div>
+              <small class="text-muted">{{ c.locality }}</small>
+            </td>
+            <td>{{ c.department.dept_name if c.department else 'N/A' }}</td>
+            <td>
+              <span class="badge bg-danger">{{ (c.delay_risk_score * 100)|round }}% Breach Risk</span>
+            </td>
+            <td><span class="badge {{ c.status|status_badge }}">{{ c.status }}</span></td>
+            <td>
+              <a href="{{ url_for('officer.review_detail', reference_no=c.reference_no) }}" class="btn btn-sm btn-outline-primary">
+                Inspect
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-3 text-muted">
+              <i class="bi bi-check-circle-fill text-success me-1"></i>No high delay risk projections currently active.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

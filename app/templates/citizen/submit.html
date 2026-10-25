@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Report Civic Grievance — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-2">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-file-earmark-plus me-2"></i>Submit Public Grievance</h5>
+        <small class="text-white-50">Report infrastructure, sanitation, or civic defects with automated AI triage</small>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('citizen.submit_complaint') }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Complaint Title -->
+          <div class="mb-3">
+            <label for="complaint-title" class="form-label fw-semibold">Complaint Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="complaint-title" name="title" required
+                   placeholder="e.g., Deep dangerous pothole causing bike skids on 5th Cross Road">
+          </div>
+
+          <!-- Description -->
+          <div class="mb-3">
+            <label for="complaint-description" class="form-label fw-semibold">Description of Problem <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="complaint-description" name="description" rows="4" required
+                      placeholder="Provide specific details such as landmarks, severity, duration, and safety hazards..."></textarea>
+            
+            <!-- Real-time AI NLP Classifier Feedback Area -->
+            <div id="ai-category-suggestion"></div>
+          </div>
+
+          <!-- Category Selection -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="category_id" class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+              <select class="form-select" id="category_id" name="category_id" required>
+                <option value="">-- Select Category --</option>
+                {% for cat in categories %}
+                  <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.department.code }})</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">Will be verified by the AI classifier and municipal officer.</small>
+            </div>
+
+            <div class="col-md-6">
+              <label for="locality" class="form-label fw-semibold">Locality / Ward <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="locality" name="locality" required
+                     placeholder="e.g., Indiranagar, Ward 112">
+            </div>
+          </div>
+
+          <!-- Geolocation Coordinates -->
+          <div class="card bg-light border p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="fw-semibold"><i class="bi bi-geo-alt text-primary me-1"></i>Optional Location Pin</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="use-my-location">
+                <i class="bi bi-crosshair me-1"></i> Detect My Coordinates
+              </button>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <input type="text" class="form-control form-control-sm" id="latitude" name="latitude" placeholder="Latitude (e.g., 12.9716)">
+              </div>
+              <div class="col-md-6">
+                <input type="text" class="form-control form-control-sm" id="longitude" name="longitude" placeholder="Longitude (e.g., 77.5946)">
+              </div>
+            </div>
+            <div class="form-text small">Click anywhere on the map or type coordinates to pinpoint the defect.</div>
+            <div id="pin-map" class="mt-2" style="height: 200px; border-radius: 4px; border: 1px solid #cbd5e1;"></div>
+          </div>
+
+          <!-- Attachment Upload -->
+          <div class="mb-3">
+            <label for="attachment" class="form-label fw-semibold">Photo Attachment (Optional)</label>
+            <input class="form-control" type="file" id="attachment" name="attachment" accept=".jpg,.jpeg,.png,.pdf">
+            <div class="form-text small">Allowed formats: JPG, PNG, PDF (Max 5MB). Files are quarantined and scrubbed.</div>
+          </div>
+
+          <!-- Privacy Notice -->
+          <div class="alert alert-secondary py-2 small mb-3">
+            <i class="bi bi-shield-lock text-primary me-1"></i>
+            <strong>Privacy & Integrity Notice:</strong> Your grievance will be assigned a unique tracking ID. Personal phone numbers and identification numbers are not collected. Public dashboards display only aggregated locality counts.
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+            <i class="bi bi-send-check me-1"></i> Register Complaint
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const latField = document.getElementById("latitude");
+    const lonField = document.getElementById("longitude");
+    const mapContainer = document.getElementById("pin-map");
+
+    if (window.L && mapContainer) {
+      try {
+        const defaultLat = 12.9716;
+        const defaultLon = 77.5946;
+        const map = L.map('pin-map').setView([defaultLat, defaultLon], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        let marker = null;
+        map.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          latField.value = lat.toFixed(5);
+          lonField.value = lng.toFixed(5);
+          if (marker) map.removeLayer(marker);
+          marker = L.marker([lat, lng]).addTo(map);
+        });
+
+        document.getElementById("use-my-location")?.addEventListener("click", () => {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              latField.value = lat.toFixed(5);
+              lonField.value = lng.toFixed(5);
+              map.setView([lat, lng], 15);
+              if (marker) map.removeLayer(marker);
+              marker = L.marker([lat, lng]).addTo(map);
+            }, () => {
+              alert("Unable to retrieve device geolocation.");
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("Map pin container degraded gracefully:", err);
+      }
+    }
+  });
+</script>
+{% endblock %}

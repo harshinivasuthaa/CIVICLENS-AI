@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Municipal Triage Queue — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-inbox me-2 text-primary"></i>Municipal Grievance Triage Queue</h3>
+    <p class="text-muted mb-0">Prioritized operational workload ranked by composite multi-factor urgency formula.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('officer.alerts') }}" class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-bell-fill me-1"></i> Active Alerts
+      {% if unread_alerts_count > 0 %}
+        <span class="badge bg-danger ms-1">{{ unread_alerts_count }}</span>
+      {% endif %}
+    </a>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card shadow-sm border-0 mb-4 p-3 bg-white">
+  <form method="GET" action="{{ url_for('officer.queue') }}" class="row g-2 align-items-center">
+    <div class="col-md-3">
+      <label class="form-label small text-muted mb-1">Department</label>
+      <select class="form-select form-select-sm" name="dept">
+        <option value="">-- All Departments --</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {% if selected_dept|string == d.id|string %}selected{% endif %}>{{ d.dept_name }} ({{ d.code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small text-muted mb-1">Category</label>
+      <select class="form-select form-select-sm" name="cat">
+        <option value="">-- All Categories --</option>
+        {% for c in categories %}
+          <option value="{{ c.id }}" {% if selected_cat|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label small text-muted mb-1">Status</label>
+      <select class="form-select form-select-sm" name="status">
+        <option value="">-- All Statuses --</option>
+        <option value="SUBMITTED" {% if selected_status == 'SUBMITTED' %}selected{% endif %}>SUBMITTED</option>
+        <option value="UNDER_REVIEW" {% if selected_status == 'UNDER_REVIEW' %}selected{% endif %}>UNDER REVIEW</option>
+        <option value="ASSIGNED" {% if selected_status == 'ASSIGNED' %}selected{% endif %}>ASSIGNED</option>
+        <option value="IN_PROGRESS" {% if selected_status == 'IN_PROGRESS' %}selected{% endif %}>IN PROGRESS</option>
+        <option value="RESOLVED" {% if selected_status == 'RESOLVED' %}selected{% endif %}>RESOLVED</option>
+        <option value="CLOSED" {% if selected_status == 'CLOSED' %}selected{% endif %}>CLOSED</option>
+        <option value="REOPENED" {% if selected_status == 'REOPENED' %}selected{% endif %}>REOPENED</option>
+        <option value="REJECTED" {% if selected_status == 'REJECTED' %}selected{% endif %}>REJECTED</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label small text-muted mb-1">Priority Band</label>
+      <select class="form-select form-select-sm" name="priority">
+        <option value="">-- All Bands --</option>
+        <option value="Urgent Review" {% if selected_priority == 'Urgent Review' %}selected{% endif %}>Urgent Review</option>
+        <option value="Elevated Attention" {% if selected_priority == 'Elevated Attention' %}selected{% endif %}>Elevated Attention</option>
+        <option value="Routine Review" {% if selected_priority == 'Routine Review' %}selected{% endif %}>Routine Review</option>
+      </select>
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end gap-1">
+      <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
+      <a href="{{ url_for('officer.queue') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Complaints Queue Table -->
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <span class="fw-bold"><i class="bi bi-list-task me-2 text-primary"></i>Active Queue ({{ complaints|length }} complaints)</span>
+    <span class="small text-muted">Sorted by Composite Priority Score &darr;</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Priority Score</th>
+          <th>Reference & Title</th>
+          <th>Department / Category</th>
+          <th>Locality</th>
+          <th>Status</th>
+          <th>Delay Risk</th>
+          <th>SLA Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in complaints %}
+          <tr class="{% if c.priority_score >= 0.70 %}table-danger-subtle{% elif c.is_overdue() %}table-warning-subtle{% endif %}">
+            <td>
+              <div class="d-flex align-items-center">
+                <span class="badge {{ c.final_priority|priority_badge }} me-2 priority-score-pill">
+                  {{ "%.2f"|format(c.priority_score) }}
+                </span>
+                <small class="text-muted d-block" style="font-size: 0.75rem;">{{ c.final_priority }}</small>
+              </div>
+            </td>
+            <td>
+              <span class="fw-bold font-monospace text-primary d-block">{{ c.reference_no }}</span>
+              <span class="fw-semibold text-truncate d-inline-block" style="max-width: 260px;" title="{{ c.title }}">{{ c.title }}</span>
+            </td>
+            <td>
+              <div class="small fw-semibold">{{ c.department.code if c.department else 'N/A' }}</div>
+              <small class="text-muted">{{ c.category.name if c.category else 'N/A' }}</small>
+            </td>
+            <td><i class="bi bi-geo-alt text-danger me-1"></i>{{ c.locality }}</td>
+            <td><span class="badge {{ c.status|status_badge }}">{{ c.status }}</span></td>
+            <td>
+              {% if c.delay_risk_score >= 0.70 %}
+                <span class="badge bg-danger"><i class="bi bi-exclamation-octagon me-1"></i>High Risk</span>
+              {% elif c.delay_risk_score >= 0.40 %}
+                <span class="badge bg-warning text-dark">Moderate</span>
+              {% else %}
+                <span class="badge bg-success">Low Risk</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if c.is_overdue() %}
+                <span class="badge bg-danger"><i class="bi bi-clock-history me-1"></i>Breached</span>
+              {% else %}
+                <small class="text-muted">{{ c.elapsed_hours()|round(1) }}h / {{ c.category.default_sla if c.category else 48 }}h</small>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('officer.review_detail', reference_no=c.reference_no) }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-pencil-square me-1"></i> Triage
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="bi bi-check2-all fs-2 text-success d-block mb-2"></i>
+              No complaints in queue matching filter criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

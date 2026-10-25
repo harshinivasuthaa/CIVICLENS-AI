@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.env
+instance/*.db
+.git
+.gitignore
+tests/__pycache__
+*.docx
+report_builder/
+diagrams/

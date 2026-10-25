@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Public Transparency Portal — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="mb-4 text-center py-2">
+  <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-2 px-3 py-1">Public Information Portal</span>
+  <h2 class="fw-bold mb-1">Municipal Service Delivery & Grievance Transparency</h2>
+  <p class="text-muted mx-auto" style="max-width: 650px;">
+    Real-time public reporting on municipal responsiveness, resolution timelines, and category distributions. Private citizen records and sensitive details are strictly redacted.
+  </p>
+</div>
+
+<!-- Aggregated Metrics -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Total Complaints Filed</span>
+          <h2 class="fw-bold mb-0 text-primary">{{ total }}</h2>
+        </div>
+        <div class="stat-icon bg-light text-primary"><i class="bi bi-inbox-fill"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Grievances Resolved</span>
+          <h2 class="fw-bold mb-0 text-success">{{ resolved }}</h2>
+        </div>
+        <div class="stat-icon bg-light text-success"><i class="bi bi-check-circle-fill"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Active in Progress</span>
+          <h2 class="fw-bold mb-0 text-warning">{{ active }}</h2>
+        </div>
+        <div class="stat-icon bg-light text-warning"><i class="bi bi-gear-wide-connected"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-stat p-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <span class="text-muted small text-uppercase fw-semibold">Median Resolution Time</span>
+          <h2 class="fw-bold mb-0 text-info">{{ median_res_hours }}h</h2>
+        </div>
+        <div class="stat-icon bg-light text-info"><i class="bi bi-clock-history"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visualizations -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-pie-chart me-2 text-primary"></i>Grievances by Category</h5>
+      </div>
+      <div class="card-body p-4 d-flex align-items-center justify-content-center">
+        <div style="max-width: 480px; width: 100%;">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-geo-alt me-2 text-primary"></i>Top Reporting Localities</h5>
+        <small class="text-muted">Aggregated counts (Zero citizen PII exposed)</small>
+      </div>
+      <div class="card-body p-4">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Locality / Ward</th>
+              <th class="text-end">Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loc, cnt in top_localities %}
+              <tr>
+                <td><i class="bi bi-geo-alt text-danger me-1"></i>{{ loc }}</td>
+                <td class="text-end fw-bold">{{ cnt }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="2" class="text-center text-muted">No locality records.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const labels = {{ cat_labels|safe }};
+    const counts = {{ cat_counts|safe }};
+    const ctx = document.getElementById("categoryChart");
+
+    if (window.Chart && ctx && labels.length > 0) {
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: counts,
+            backgroundColor: [
+              '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
+              '#EF4444', '#06B6D4', '#EC4899', '#64748B'
+            ],
+            borderWidth: 2,
+            borderColor: '#FFFFFF'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 12, font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

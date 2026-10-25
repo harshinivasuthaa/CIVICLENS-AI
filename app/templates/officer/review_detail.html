@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}Triage Grievance {{ complaint.reference_no }} — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('officer.queue') }}" class="text-decoration-none">
+    <i class="bi bi-arrow-left me-1"></i> Back to Operational Queue
+  </a>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Complaint Details, Scorecard, and Duplicates -->
+  <div class="col-lg-7">
+    <!-- Complaint Overview Card -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div>
+          <span class="text-muted small text-uppercase">Reference Code</span>
+          <h4 class="mb-0 fw-bold font-monospace text-primary">{{ complaint.reference_no }}</h4>
+        </div>
+        <div>
+          <span class="badge {{ complaint.status|status_badge }} fs-6">{{ complaint.status }}</span>
+          {% if complaint.is_overdue() %}
+            <span class="badge bg-danger ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>SLA Breached</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-4">
+        <h5 class="fw-bold text-dark mb-2">{{ complaint.title }}</h5>
+        <p class="text-secondary mb-3" style="white-space: pre-line;">{{ complaint.description }}</p>
+
+        <div class="row g-3 py-3 border-top border-bottom bg-light rounded px-2 mb-3">
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Department</small>
+            <span class="fw-semibold">{{ complaint.department.dept_name if complaint.department else 'N/A' }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Category</small>
+            <span class="fw-semibold">{{ complaint.category.name if complaint.category else 'N/A' }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Locality / Ward</small>
+            <span class="fw-semibold"><i class="bi bi-geo-alt text-danger me-1"></i>{{ complaint.locality }}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Submitted At</small>
+            <span class="fw-semibold">{{ complaint.submitted_at|format_date }}</span>
+          </div>
+        </div>
+
+        <!-- Attachment Download -->
+        {% if complaint.attachment_path %}
+          <div class="alert alert-info py-2 d-flex align-items-center justify-content-between mb-0">
+            <small><i class="bi bi-paperclip me-1"></i>Attachment: <code>{{ complaint.attachment_path }}</code></small>
+            <span class="badge bg-secondary">Quarantined</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Transparent Priority Scorecard -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0 fw-bold"><i class="bi bi-speedometer2 me-2 text-primary"></i>Transparent Multi-Factor Scorecard</h5>
+          <small class="text-muted">Formula: P = &sum; (w<sub>i</sub> &times; x<sub>i</sub>) &bull; Explainable Decision-Support</small>
+        </div>
+        <div class="text-end">
+          <span class="badge {{ complaint.final_priority|priority_badge }} fs-6">
+            Score: {{ "%.2f"|format(complaint.priority_score) }} ({{ complaint.final_priority }})
+          </span>
+          {% if complaint.priority_override_reason %}
+            <small class="text-warning d-block fw-semibold" style="font-size: 0.75rem;">(Officer Overridden)</small>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-4">
+        {% if breakdown %}
+          <!-- Factor 1: Severity -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span><strong>1. Severity Factor (x<sub>sev</sub>):</strong> Base Hazard + Keywords</span>
+              <span>Value: {{ breakdown.severity.factor_value }} &times; W: {{ breakdown.severity.weight }} = <strong>+{{ breakdown.severity.contribution }}</strong></span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar bg-danger" style="width: {{ (breakdown.severity.factor_value * 100)|round }}%;"></div>
+            </div>
+          </div>
+
+          <!-- Factor 2: Elapsed Time Ratio -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span><strong>2. Elapsed Time Ratio (x<sub>time</sub>):</strong> Elapsed / SLA</span>
+              <span>Value: {{ breakdown.elapsed_time.factor_value }} &times; W: {{ breakdown.elapsed_time.weight }} = <strong>+{{ breakdown.elapsed_time.contribution }}</strong></span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar bg-warning" style="width: {{ (breakdown.elapsed_time.factor_value * 100)|round }}%;"></div>
+            </div>
+          </div>
+
+          <!-- Factor 3: SLA Breach Urgency -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span><strong>3. SLA Breach Urgency (x<sub>breach</sub>):</strong> Deadline Exceeded Flag</span>
+              <span>Value: {{ breakdown.sla_breach.factor_value }} &times; W: {{ breakdown.sla_breach.weight }} = <strong>+{{ breakdown.sla_breach.contribution }}</strong></span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar bg-danger" style="width: {{ (breakdown.sla_breach.factor_value * 100)|round }}%;"></div>
+            </div>
+          </div>
+
+          <!-- Factor 4: Recurrence Density -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span><strong>4. Locality Recurrence (x<sub>rec</sub>):</strong> Cluster Density in Ward</span>
+              <span>Value: {{ breakdown.recurrence.factor_value }} &times; W: {{ breakdown.recurrence.weight }} = <strong>+{{ breakdown.recurrence.contribution }}</strong></span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar bg-info" style="width: {{ (breakdown.recurrence.factor_value * 100)|round }}%;"></div>
+            </div>
+          </div>
+
+          <!-- Factor 5: Delay Risk -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span><strong>5. Predicted Delay Risk (x<sub>delay</sub>):</strong> Operational Risk</span>
+              <span>Value: {{ breakdown.delay_risk.factor_value }} &times; W: {{ breakdown.delay_risk.weight }} = <strong>+{{ breakdown.delay_risk.contribution }}</strong></span>
+            </div>
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar bg-purple" style="width: {{ (breakdown.delay_risk.factor_value * 100)|round }}%;"></div>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted small">Scorecard breakdown not yet populated.</p>
+        {% endif %}
+
+        {% if complaint.priority_override_reason %}
+          <div class="alert alert-warning py-2 small mt-3 mb-0">
+            <strong><i class="bi bi-shield-exclamation me-1"></i>Override Justification:</strong> {{ complaint.priority_override_reason }}
+          </div>
+        {% endif %}
+
+        <div class="mt-3 pt-3 border-top d-flex justify-content-end">
+          <button type="button" class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="modal" data-bs-target="#overrideModal">
+            <i class="bi bi-sliders me-1"></i> Override Priority Recommendation
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duplicate Detection Review -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-copy me-2 text-primary"></i>Duplicate & Similar Grievances</h5>
+        <small class="text-muted">TF-IDF Cosine Similarity within same locality and time window</small>
+      </div>
+      <div class="card-body p-4">
+        {% if duplicates %}
+          {% for d in duplicates %}
+            <div class="border rounded p-3 mb-3 bg-light">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                  <span class="badge bg-secondary font-monospace">{{ d.similar_complaint.reference_no }}</span>
+                  <span class="fw-semibold ms-2">{{ d.similar_complaint.title }}</span>
+                </div>
+                <div>
+                  <span class="badge {% if d.similarity_score >= 0.85 %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                    {{ (d.similarity_score * 100)|round }}% Match
+                  </span>
+                </div>
+              </div>
+              <p class="small text-secondary mb-2">{{ d.similar_complaint.description[:120] }}...</p>
+              
+              <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                <small class="text-muted">Status: <strong>{{ d.review_status }}</strong></small>
+                {% if d.review_status == 'PENDING' %}
+                  <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('officer.review_duplicate', reference_no=complaint.reference_no, suggestion_id=d.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="action" value="CONFIRM">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Confirm Duplicate</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('officer.review_duplicate', reference_no=complaint.reference_no, suggestion_id=d.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="action" value="DISMISS">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary">Dismiss</button>
+                    </form>
+                  </div>
+                {% else %}
+                  <small class="text-success"><i class="bi bi-check-circle me-1"></i>Reviewed by Officer</small>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted small mb-0"><i class="bi bi-shield-check text-success me-1"></i>No duplicate complaints detected in this locality.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Status Transition & Reclassify Forms -->
+  <div class="col-lg-5">
+    <!-- Status Action Form -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-primary text-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Update Workflow Status</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('officer.update_status', reference_no=complaint.reference_no) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- New Status -->
+          <div class="mb-3">
+            <label for="status" class="form-label fw-semibold">Grievance Status <span class="text-danger">*</span></label>
+            <select class="form-select" id="status" name="status" required>
+              <option value="SUBMITTED" {% if complaint.status == 'SUBMITTED' %}selected{% endif %}>SUBMITTED</option>
+              <option value="UNDER_REVIEW" {% if complaint.status == 'UNDER_REVIEW' %}selected{% endif %}>UNDER REVIEW</option>
+              <option value="ASSIGNED" {% if complaint.status == 'ASSIGNED' %}selected{% endif %}>ASSIGNED</option>
+              <option value="IN_PROGRESS" {% if complaint.status == 'IN_PROGRESS' %}selected{% endif %}>IN PROGRESS</option>
+              <option value="RESOLVED" {% if complaint.status == 'RESOLVED' %}selected{% endif %}>RESOLVED</option>
+              <option value="CLOSED" {% if complaint.status == 'CLOSED' %}selected{% endif %}>CLOSED</option>
+              <option value="REJECTED" {% if complaint.status == 'REJECTED' %}selected{% endif %}>REJECTED</option>
+            </select>
+          </div>
+
+          <!-- Assign Officer -->
+          <div class="mb-3">
+            <label for="assigned_officer_id" class="form-label fw-semibold">Assign Municipal Officer</label>
+            <select class="form-select" id="assigned_officer_id" name="assigned_officer_id">
+              <option value="">-- Unassigned --</option>
+              {% for off in officers %}
+                <option value="{{ off.id }}" {% if complaint.assigned_officer_id == off.id %}selected{% endif %}>
+                  {{ off.username }} ({{ off.department.code if off.department else 'General' }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Resolution Notes (Mandatory if Resolved) -->
+          <div class="mb-3">
+            <label for="resolution_notes" class="form-label fw-semibold">
+              Resolution Remedy Notes <span class="text-muted small">(Strictly required for RESOLVED)</span>
+            </label>
+            <textarea class="form-control" id="resolution_notes" name="resolution_notes" rows="3"
+                      placeholder="Document physical repair, materials used, contractor notes...">{{ complaint.resolution_notes or '' }}</textarea>
+          </div>
+
+          <!-- Rejection Reason (Mandatory if Rejected) -->
+          <div class="mb-3">
+            <label for="rejection_reason" class="form-label fw-semibold">
+              Rejection Justification <span class="text-muted small">(Strictly required for REJECTED)</span>
+            </label>
+            <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="2"
+                      placeholder="Specify out of jurisdiction, malicious report, private property...">{{ complaint.rejection_reason or '' }}</textarea>
+          </div>
+
+          <!-- Internal Officer Comment -->
+          <div class="mb-3">
+            <label for="internal_comment" class="form-label fw-semibold">Internal Audit Remark (Officer only)</label>
+            <textarea class="form-control" id="internal_comment" name="internal_comment" rows="2"
+                      placeholder="Confidential notes not visible to citizen..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+            <i class="bi bi-check2-circle me-1"></i> Apply Status Change
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Human-in-the-Loop Reclassification -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-tag me-2 text-primary"></i>Correct AI Classification</h6>
+        <small class="text-muted">Enriches ground truth dataset for model retraining</small>
+      </div>
+      <div class="card-body p-3">
+        <form method="POST" action="{{ url_for('officer.reclassify_category', reference_no=complaint.reference_no) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-2">
+            <label class="form-label small text-muted">Change Category to:</label>
+            <select class="form-select form-select-sm" name="category_id" required>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if complaint.category_id == cat.id %}selected{% endif %}>
+                  {{ cat.name }} ({{ cat.department.code }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+            <i class="bi bi-arrow-repeat me-1"></i> Reclassify & Log Ground Truth
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delay Risk Factor Card -->
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-cpu me-2 text-primary"></i>Delay Risk Diagnostic</h6>
+      </div>
+      <div class="card-body p-3 small">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">Breach Probability:</span>
+          <strong>{{ (complaint.delay_risk_score * 100)|round }}%</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Operational Risk Level:</span>
+          <span class="badge {% if complaint.delay_risk_score >= 0.70 %}bg-danger{% elif complaint.delay_risk_score >= 0.40 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+            {{ complaint.delay_risk_level }}
+          </span>
+        </div>
+        {% if delay_factors %}
+          <div class="bg-light p-2 rounded">
+            <div>Elapsed: <strong>{{ delay_factors.elapsed_hours }}h</strong> / SLA: <strong>{{ delay_factors.sla_hours }}h</strong></div>
+            <div>Dept Active Backlog: <strong>{{ delay_factors.department_backlog }} complaints</strong></div>
+            <div>Submission Window: <strong>{{ delay_factors.day_of_week }} ({{ delay_factors.submission_hour }}:00)</strong></div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Priority Override Modal -->
+<div class="modal fade" id="overrideModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('officer.override_priority', reference_no=complaint.reference_no) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header bg-warning">
+          <h5 class="modal-title fw-bold"><i class="bi bi-sliders me-2"></i>Override Priority Recommendation</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">Administrative override requires a documented justification for audit accountability.</p>
+          <div class="mb-3">
+            <label for="priority" class="form-label fw-semibold">New Priority Band</label>
+            <select class="form-select" id="priority" name="priority" required>
+              <option value="Urgent Review" {% if complaint.final_priority == 'Urgent Review' %}selected{% endif %}>Urgent Review</option>
+              <option value="Elevated Attention" {% if complaint.final_priority == 'Elevated Attention' %}selected{% endif %}>Elevated Attention</option>
+              <option value="Routine Review" {% if complaint.final_priority == 'Routine Review' %}selected{% endif %}>Routine Review</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="override_reason" class="form-label fw-semibold">Override Justification <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="override_reason" name="reason" rows="3" required
+                      placeholder="e.g., VIP route inspection, high accident hazard on site, school proximity..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning btn-sm fw-semibold">Confirm Priority Override</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}System Configuration — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-sliders me-2 text-primary"></i>Transparent Priority Formula Configuration</h3>
+    <p class="text-muted mb-0">Tune multi-factor weights dynamically. The system formula satisfies: &sum; w<sub>i</sub> = 1.0.</p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-gear me-2"></i>Multi-Factor Prioritization Weights</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('admin.system_config') }}" id="weights-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Weight 1: Severity -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label class="form-label fw-semibold">1. Severity Factor Weight (w<sub>sev</sub>)</label>
+              <span class="fw-bold" id="val-sev">{{ weights.severity }}</span>
+            </div>
+            <input type="range" class="form-range weight-slider" name="w_sev" id="w_sev" min="0.0" max="1.0" step="0.05" value="{{ weights.severity }}">
+            <div class="form-text small">Public hazard, critical infrastructure, keyword safety escalations.</div>
+          </div>
+
+          <!-- Weight 2: Elapsed Time -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label class="form-label fw-semibold">2. Elapsed Time Weight (w<sub>time</sub>)</label>
+              <span class="fw-bold" id="val-time">{{ weights.elapsed_time }}</span>
+            </div>
+            <input type="range" class="form-range weight-slider" name="w_time" id="w_time" min="0.0" max="1.0" step="0.05" value="{{ weights.elapsed_time }}">
+            <div class="form-text small">Proportion of elapsed time relative to service deadline SLA.</div>
+          </div>
+
+          <!-- Weight 3: SLA Breach -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label class="form-label fw-semibold">3. SLA Breach Urgency Weight (w<sub>breach</sub>)</label>
+              <span class="fw-bold" id="val-breach">{{ weights.sla_breach }}</span>
+            </div>
+            <input type="range" class="form-range weight-slider" name="w_breach" id="w_breach" min="0.0" max="1.0" step="0.05" value="{{ weights.sla_breach }}">
+            <div class="form-text small">Binary urgency boost applied when target deadline is exceeded.</div>
+          </div>
+
+          <!-- Weight 4: Recurrence -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label class="form-label fw-semibold">4. Locality Recurrence Density Weight (w<sub>rec</sub>)</label>
+              <span class="fw-bold" id="val-rec">{{ weights.recurrence }}</span>
+            </div>
+            <input type="range" class="form-range weight-slider" name="w_rec" id="w_rec" min="0.0" max="1.0" step="0.05" value="{{ weights.recurrence }}">
+            <div class="form-text small">Cluster density of active grievances in the same geographic ward.</div>
+          </div>
+
+          <!-- Weight 5: Delay Risk -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label class="form-label fw-semibold">5. AI Predicted Delay Risk Weight (w<sub>delay</sub>)</label>
+              <span class="fw-bold" id="val-delay">{{ weights.delay_risk }}</span>
+            </div>
+            <input type="range" class="form-range weight-slider" name="w_delay" id="w_delay" min="0.0" max="1.0" step="0.05" value="{{ weights.delay_risk }}">
+            <div class="form-text small">Statistical breach probability from delay prediction model.</div>
+          </div>
+
+          <!-- Sum Meter -->
+          <div class="card p-3 bg-light border mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="fw-bold">Total Weight Sum:</span>
+              <span class="fs-5 fw-bold" id="weight-sum">1.00</span>
+            </div>
+            <div class="small text-muted" id="weight-feedback">Weights must sum to 1.00 exactly.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="save-weights-btn">
+            <i class="bi bi-save me-1"></i> Save Priority Formula Policy
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const sliders = document.querySelectorAll(".weight-slider");
+    const sumSpan = document.getElementById("weight-sum");
+    const feedback = document.getElementById("weight-feedback");
+    const saveBtn = document.getElementById("save-weights-btn");
+
+    const updateSum = () => {
+      let total = 0;
+      sliders.forEach(s => {
+        const val = parseFloat(s.value);
+        total += val;
+        const targetId = "val-" + s.id.replace("w_", "");
+        const labelEl = document.getElementById(targetId);
+        if (labelEl) labelEl.textContent = val.toFixed(2);
+      });
+
+      sumSpan.textContent = total.toFixed(2);
+      if (Math.abs(total - 1.0) < 0.01) {
+        sumSpan.className = "fs-5 fw-bold text-success";
+        feedback.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Valid normalized distribution.</span>';
+        saveBtn.disabled = false;
+      } else {
+        sumSpan.className = "fs-5 fw-bold text-danger";
+        feedback.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Current sum is ${total.toFixed(2)}. Adjust sliders so total equals 1.00.</span>`;
+        saveBtn.disabled = true;
+      }
+    };
+
+    sliders.forEach(s => s.addEventListener("input", updateSum));
+    updateSum();
+  });
+</script>
+{% endblock %}

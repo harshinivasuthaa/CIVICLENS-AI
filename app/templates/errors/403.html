@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}403 Forbidden — CIVICLENS AI{% endblock %}
+{% block content %}
+<div class="row justify-content-center py-5 text-center">
+  <div class="col-md-6">
+    <div class="display-1 fw-bold text-danger mb-3">403</div>
+    <h3 class="fw-bold mb-2">Access Denied (Role-Based Restriction)</h3>
+    <p class="text-muted mb-4">You do not possess the required authorization role to access this municipal resource or inspect this citizen grievance.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary"><i class="bi bi-shield-lock me-1"></i> Return to Authorized Dashboard</a>
+  </div>
+</div>
+{% endblock %}

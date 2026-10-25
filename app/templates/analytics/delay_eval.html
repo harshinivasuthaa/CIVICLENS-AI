@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}AI Model Evaluation — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-cpu me-2 text-primary"></i>AI Subsystem Evaluation & Methodology</h3>
+    <p class="text-muted mb-0">Model evaluation, explainability diagnostics, and operational baseline comparisons.</p>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Subsystem 1: Text Classifier Evaluation -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-chat-left-text me-2 text-primary"></i>1. Complaint Text NLP Classifier</h5>
+        <small class="text-muted">TF-IDF Vectorizer (1-2 ngrams) + Multinomial Logistic Regression</small>
+      </div>
+      <div class="card-body p-4">
+        <div class="alert alert-light border small mb-3">
+          <strong>Architecture:</strong> Sublinear TF scaling with L2 regularized logistic regression, outputting calibrated probability scores P(Category | Text).
+        </div>
+
+        <ul class="list-group list-group-flush small mb-3">
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Supported Municipal Categories:</span>
+            <strong>8 Distinct Categories</strong>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Triage Confidence Gate (&tau;):</span>
+            <span class="badge bg-primary">&ge; 0.55 Auto-suggest</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Low-Confidence Action:</span>
+            <span class="badge bg-warning text-dark">&lt; 0.55 Flag for Officer Triage</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Human Feedback Loop:</span>
+            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Active (Officer overrides logged to ground truth)</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subsystem 2: Delay Risk Estimator Evaluation -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-stopwatch me-2 text-primary"></i>2. Service Delay Risk Estimator</h5>
+        <small class="text-muted">Supervised Random Forest & Deterministic Operational Baseline</small>
+      </div>
+      <div class="card-body p-4">
+        <div class="alert alert-light border small mb-3">
+          <strong>Active Engine:</strong> <span class="badge bg-success">{{ eval_info.model_type }}</span>
+        </div>
+
+        <ul class="list-group list-group-flush small mb-3">
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Eligible Resolved Historical Records:</span>
+            <strong>{{ eval_info.eligible_records }} records</strong>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Minimum Sample for Supervised Retraining:</span>
+            <span>{{ eval_info.training_threshold_min }} records across both classes</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Target Label Specification:</span>
+            <code>is_delayed = (resolved_at &gt; deadline_at)</code>
+          </li>
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span>Operational Features Evaluated:</span>
+            <span class="text-primary font-monospace">Category, Dept, Backlog, Day, Hour, SLA Ratio</span>
+          </li>
+        </ul>
+
+        {% if not eval_info.is_model_trained %}
+          <div class="alert alert-info py-2 small mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Baseline Operational Mode:</strong> In data-sparse phases, the framework runs a deterministic backlog-velocity heuristic, ensuring transparent and reliable risk estimation without fabricating statistical figures.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scientific Integrity and Ethics Notice -->
+<div class="card shadow-sm border-0 bg-light p-4">
+  <h6 class="fw-bold mb-2"><i class="bi bi-shield-shaded text-primary me-2"></i>Engineering & Ethical Design Principles</h6>
+  <p class="small text-secondary mb-0">
+    CIVICLENS AI operates strictly as a decision-support system. It does not replace municipal officials or automatically resolve physical complaints. In accordance with B.Tech CSE engineering standards, model predictions are explainable and feature breakdowns are fully transparent. All demo records containing synthetic outcomes are explicitly labeled to preserve academic integrity.
+  </p>
+</div>
+{% endblock %}

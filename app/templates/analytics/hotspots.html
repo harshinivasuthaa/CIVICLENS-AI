@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Geospatial Hotspots — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-geo-alt-fill me-2 text-danger"></i>Geographic Hotspot & Recurring Issue Analytics</h3>
+    <p class="text-muted mb-0">Spatiotemporal clustering of municipal complaints. Degrades gracefully to tabular clustering if map tiles are offline.</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card shadow-sm border-0 mb-4 p-3 bg-white">
+  <form method="GET" action="{{ url_for('analytics.hotspots') }}" class="row g-2 align-items-center">
+    <div class="col-md-3">
+      <select class="form-select form-select-sm" name="category_id">
+        <option value="">-- All Categories --</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if selected_cat|string == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select form-select-sm" name="dept_id">
+        <option value="">-- All Departments --</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {% if selected_dept|string == d.id|string %}selected{% endif %}>{{ d.dept_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select form-select-sm" name="status">
+        <option value="">-- All Statuses --</option>
+        <option value="SUBMITTED" {% if selected_status == 'SUBMITTED' %}selected{% endif %}>SUBMITTED</option>
+        <option value="UNDER_REVIEW" {% if selected_status == 'UNDER_REVIEW' %}selected{% endif %}>UNDER REVIEW</option>
+        <option value="ASSIGNED" {% if selected_status == 'ASSIGNED' %}selected{% endif %}>ASSIGNED</option>
+        <option value="IN_PROGRESS" {% if selected_status == 'IN_PROGRESS' %}selected{% endif %}>IN PROGRESS</option>
+        <option value="RESOLVED" {% if selected_status == 'RESOLVED' %}selected{% endif %}>RESOLVED</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm w-100">Filter Hotspots</button>
+      <a href="{{ url_for('analytics.hotspots') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Map and Fallback Row -->
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-map me-2 text-primary"></i>Interactive Spatial Map</h5>
+        <span class="badge bg-light text-dark border"><span id="point-count">0</span> pinned grievances</span>
+      </div>
+      <div class="card-body p-0">
+        <!-- Map Container -->
+        <div id="leaflet-map"></div>
+        <div id="map-fallback-notice" class="p-3 text-muted small d-none bg-light border-top">
+          <i class="bi bi-wifi-off text-warning me-1"></i>
+          <strong>Offline Mode:</strong> External OpenStreetMap tiles could not be fetched. The tabular cluster analysis below remains fully accessible.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-building me-2 text-primary"></i>Locality Cluster Density</h5>
+        <small class="text-muted">High-density complaint zones</small>
+      </div>
+      <div class="card-body p-3">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th>Locality / Ward</th>
+                <th class="text-end">Complaints</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for loc, count in locality_clusters %}
+                <tr>
+                  <td>
+                    <span class="fw-semibold">{{ loc }}</span>
+                  </td>
+                  <td class="text-end">
+                    <span class="badge {% if count >= 10 %}bg-danger{% elif count >= 5 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                      {{ count }}
+                    </span>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="2" class="text-center text-muted">No cluster records.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const points = {{ points_json|safe }};
+    const countEl = document.getElementById("point-count");
+    if (countEl) countEl.textContent = points.length;
+
+    const mapEl = document.getElementById("leaflet-map");
+    const fallbackNotice = document.getElementById("map-fallback-notice");
+
+    if (window.L && mapEl) {
+      try {
+        const centerLat = points.length > 0 ? points[0].lat : 12.9716;
+        const centerLng = points.length > 0 ? points[0].lng : 77.5946;
+
+        const map = L.map("leaflet-map").setView([centerLat, centerLng], 12);
+        
+        const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 18,
+          attribution: '&copy; OpenStreetMap'
+        });
+
+        tileLayer.on("tileerror", () => {
+          if (fallbackNotice) fallbackNotice.classList.remove("d-none");
+        });
+
+        tileLayer.addTo(map);
+
+        // Render point markers
+        points.forEach(pt => {
+          if (pt.lat && pt.lng) {
+            const markerColor = pt.priority_score >= 0.70 ? "#DC2626" : (pt.priority_score >= 0.40 ? "#D97706" : "#2563EB");
+            
+            const circle = L.circleMarker([pt.lat, pt.lng], {
+              radius: 8,
+              fillColor: markerColor,
+              color: "#FFFFFF",
+              weight: 2,
+              opacity: 1,
+              fillOpacity: 0.85
+            }).addTo(map);
+
+            const popupContent = `
+              <div style="min-width: 180px;">
+                <div class="fw-bold font-monospace text-primary">${pt.reference_no}</div>
+                <div class="small fw-semibold mb-1">${pt.title}</div>
+                <div class="small text-muted mb-1"><i class="bi bi-tag me-1"></i>${pt.category}</div>
+                <div class="small text-muted mb-1"><i class="bi bi-geo-alt me-1"></i>${pt.locality}</div>
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                  <span class="badge bg-secondary">${pt.status}</span>
+                  <strong style="color: ${markerColor};">${pt.priority}</strong>
+                </div>
+              </div>
+            `;
+            circle.bindPopup(popupContent);
+          }
+        });
+      } catch (err) {
+        console.warn("Leaflet rendering error (offline mode enabled):", err);
+        if (fallbackNotice) fallbackNotice.classList.remove("d-none");
+      }
+    } else {
+      if (fallbackNotice) fallbackNotice.classList.remove("d-none");
+    }
+  });
+</script>
+{% endblock %}

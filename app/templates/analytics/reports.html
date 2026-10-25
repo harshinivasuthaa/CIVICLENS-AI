@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Operational Reports & Export — CIVICLENS AI{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold mb-1"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>Operational Grievance Reports & Data Export</h3>
+    <p class="text-muted mb-0">Generate filtered municipal CSV extracts respecting role permissions and privacy boundaries.</p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-download me-2"></i>Export Complaints Dataset (CSV)</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="GET" action="{{ url_for('analytics.export_csv') }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Department Filter</label>
+            <select class="form-select" name="dept_id">
+              <option value="">-- All Departments --</option>
+              {% for d in departments %}
+                <option value="{{ d.id }}">{{ d.dept_name }} ({{ d.code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Category Filter</label>
+            <select class="form-select" name="category_id">
+              <option value="">-- All Categories --</option>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Grievance Status Filter</label>
+            <select class="form-select" name="status">
+              <option value="">-- All Statuses --</option>
+              <option value="SUBMITTED">SUBMITTED</option>
+              <option value="UNDER_REVIEW">UNDER REVIEW</option>
+              <option value="ASSIGNED">ASSIGNED</option>
+              <option value="IN_PROGRESS">IN PROGRESS</option>
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="CLOSED">CLOSED</option>
+              <option value="REOPENED">REOPENED</option>
+            </select>
+          </div>
+
+          <div class="alert alert-light border small mb-4">
+            <i class="bi bi-info-circle text-primary me-1"></i>
+            {% if current_user and current_user.is_officer() %}
+              <strong>Authorized Staff Scope:</strong> Export includes operational fields and assigned officer tags.
+            {% else %}
+              <strong>Public Scope:</strong> Citizen names, contact methods, and internal notes are redacted.
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+            <i class="bi bi-cloud-arrow-down me-1"></i> Download Filtered CSV Report
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
